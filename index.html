@@ -1,0 +1,2121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Google Play Store Insights — App Market Analytics Dashboard</title>
+<style>
+/* =====================================================
+   GLOBAL RESET & BASE
+   ===================================================== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --blue:   #4285F4;
+  --green:  #34A853;
+  --yellow: #FBBC04;
+  --red:    #EA4335;
+  --white:  #FFFFFF;
+  --text:   #202124;
+  --muted:  #5F6368;
+  --border: #DADCE0;
+  --surface:#F8F9FA;
+  --shadow: 0 1px 3px rgba(60,64,67,.12), 0 1px 2px rgba(60,64,67,.08);
+  --shadow-md: 0 2px 8px rgba(60,64,67,.15), 0 2px 4px rgba(60,64,67,.1);
+  --radius: 8px;
+  --radius-lg: 12px;
+  --font: -apple-system, "Segoe UI", system-ui, sans-serif;
+}
+
+html { font-size: 15px; }
+body { font-family: var(--font); background: var(--white); color: var(--text); min-height: 100vh; }
+
+/* =====================================================
+   UPLOAD SCREEN
+   ===================================================== */
+#upload-screen {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 100vh; background: var(--white); padding: 2rem; text-align: center;
+}
+.upload-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 2rem; }
+.upload-logo .play-icon { width: 48px; height: 48px; }
+.upload-logo h1 { font-size: 1.6rem; font-weight: 700; color: var(--text); }
+.upload-card {
+  background: var(--white); border: 2px dashed var(--border); border-radius: var(--radius-lg);
+  padding: 3rem 4rem; max-width: 560px; width: 100%;
+  transition: border-color .2s;
+}
+.upload-card:hover { border-color: var(--blue); }
+.upload-card h2 { font-size: 1.25rem; color: var(--text); margin-bottom: .5rem; }
+.upload-card p { color: var(--muted); font-size: .9rem; line-height: 1.6; margin-bottom: 1.5rem; }
+.upload-btn {
+  display: inline-block; background: var(--blue); color: #fff; border: none;
+  border-radius: 6px; padding: .7rem 2rem; font-size: .95rem; font-weight: 600;
+  cursor: pointer; transition: background .2s;
+}
+.upload-btn:hover { background: #3367d6; }
+.upload-note { font-size: .78rem; color: var(--muted); margin-top: .8rem; }
+#file-input { display: none; }
+.loading-msg { margin-top: 1.5rem; color: var(--blue); font-size: .9rem; display: none; }
+.auto-loading-msg {
+  margin-top: 1.5rem; color: var(--blue); font-size: .9rem;
+  display: flex; align-items: center; gap: .6rem; justify-content: center;
+}
+.spinner {
+  width: 18px; height: 18px; border: 2.5px solid #c5d9fc;
+  border-top-color: var(--blue); border-radius: 50%;
+  animation: spin .7s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.upload-divider { display: flex; align-items: center; gap: .75rem; margin: 1.25rem 0 .5rem; }
+.upload-divider::before, .upload-divider::after { content:''; flex:1; height:1px; background:var(--border); }
+.upload-divider span { font-size: .78rem; color: var(--muted); white-space: nowrap; }
+.error-box {
+  background: #fce8e6; border: 1px solid #f5c6c2; border-radius: var(--radius);
+  padding: .85rem 1rem; margin-top: 1rem; font-size: .85rem; color: #c5221f;
+  text-align: left; line-height: 1.55; display: none;
+}
+.error-box strong { display: block; margin-bottom: .3rem; }
+
+/* =====================================================
+   LAYOUT
+   ===================================================== */
+#app { display: none; flex-direction: column; min-height: 100vh; }
+
+/* ===================== HEADER ====================== */
+.header {
+  background: var(--white); border-bottom: 1px solid var(--border);
+  padding: 0 2rem; display: flex; align-items: center;
+  height: 60px; position: sticky; top: 0; z-index: 100;
+  gap: 1.5rem;
+}
+.header-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.header-brand svg { flex-shrink: 0; }
+.header-brand .brand-title {
+  font-size: 1rem; font-weight: 700; color: var(--text); white-space: nowrap;
+}
+.header-brand .brand-sub { font-size: .7rem; color: var(--muted); }
+.header-nav { display: flex; gap: .25rem; margin-left: auto; }
+.nav-btn {
+  background: none; border: none; cursor: pointer; padding: .45rem 1rem;
+  border-radius: 6px; font-size: .875rem; font-weight: 500; color: var(--muted);
+  transition: background .15s, color .15s; white-space: nowrap;
+}
+.nav-btn:hover { background: var(--surface); color: var(--text); }
+.nav-btn.active { background: #e8f0fe; color: var(--blue); font-weight: 600; }
+
+/* ===================== MAIN ======================== */
+.main { flex: 1; padding: 1.75rem 2rem 2rem; max-width: 1400px; width: 100%; margin: 0 auto; }
+
+/* ===================== FOOTER ====================== */
+.footer {
+  border-top: 1px solid var(--border); background: var(--white);
+  padding: .75rem 2rem; display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: .5rem;
+}
+.footer-left { font-size: .78rem; color: var(--muted); }
+.footer-right { font-size: .78rem; color: var(--muted); text-align: right; }
+.footer-right strong { font-weight: 600; color: #3c4043; }
+
+/* ===================== SECTION ==================== */
+.section { display: none; }
+.section.active { display: block; }
+.section-title { font-size: 1.3rem; font-weight: 700; color: var(--text); margin-bottom: .25rem; }
+.section-subtitle { font-size: .875rem; color: var(--muted); margin-bottom: 1.5rem; }
+
+/* ===================== KPI CARDS ================== */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px,1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.kpi-card {
+  background: var(--white); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1.25rem 1.4rem; box-shadow: var(--shadow);
+  display: flex; flex-direction: column; gap: .3rem;
+}
+.kpi-label { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.kpi-value { font-size: 2rem; font-weight: 700; color: var(--text); line-height: 1.15; }
+.kpi-sub { font-size: .78rem; color: var(--muted); }
+.kpi-card.accent-blue  { border-top: 3px solid var(--blue); }
+.kpi-card.accent-green { border-top: 3px solid var(--green); }
+.kpi-card.accent-yellow{ border-top: 3px solid var(--yellow); }
+.kpi-card.accent-red   { border-top: 3px solid var(--red); }
+
+/* ===================== CARDS ====================== */
+.card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.25rem 1.4rem; box-shadow: var(--shadow);
+}
+.card-title { font-size: .9rem; font-weight: 700; color: var(--text); margin-bottom: .75rem; }
+.card-subtitle { font-size: .78rem; color: var(--muted); margin-bottom: 1rem; }
+
+/* Two-column grids */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+@media (max-width: 900px) {
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+}
+.mb-1 { margin-bottom: 1rem; }
+
+/* ===================== CHARTS ===================== */
+.chart-wrap { position: relative; width: 100%; overflow: hidden; }
+.chart-wrap canvas { display: block; width: 100% !important; }
+.chart-wrap svg { display: block; width: 100%; }
+
+/* ===================== INSIGHTS BOX =============== */
+.insights-box {
+  background: #e8f0fe; border: 1px solid #c5d9fc; border-radius: var(--radius);
+  padding: 1.25rem 1.4rem; margin-bottom: 1.5rem;
+}
+.insights-box h3 { font-size: .95rem; font-weight: 700; color: var(--blue); margin-bottom: .75rem; }
+.insights-list { list-style: none; display: flex; flex-direction: column; gap: .45rem; }
+.insights-list li { font-size: .875rem; color: var(--text); line-height: 1.5; }
+.insights-list li::before { content: "•"; color: var(--blue); font-weight: 700; margin-right: .5rem; }
+
+/* ===================== FILTERS ==================== */
+.filter-bar {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1rem 1.25rem; margin-bottom: 1.25rem; display: flex; flex-wrap: wrap; gap: .75rem; align-items: flex-end;
+}
+.filter-group { display: flex; flex-direction: column; gap: .3rem; }
+.filter-group label { font-size: .75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.filter-group select, .filter-group input[type="text"], .filter-group input[type="range"] {
+  border: 1px solid var(--border); border-radius: 6px; padding: .4rem .7rem;
+  font-size: .85rem; font-family: var(--font); background: var(--white); color: var(--text);
+  min-width: 140px; outline: none;
+}
+.filter-group select:focus, .filter-group input:focus { border-color: var(--blue); }
+.btn {
+  padding: .45rem 1.1rem; border-radius: 6px; font-size: .85rem; font-weight: 600;
+  cursor: pointer; border: 1px solid transparent; transition: background .15s, color .15s;
+}
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: #3367d6; }
+.btn-secondary { background: var(--white); color: var(--muted); border-color: var(--border); }
+.btn-secondary:hover { background: var(--surface); color: var(--text); }
+
+/* ===================== TABLE ====================== */
+.table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+thead tr { background: var(--surface); }
+th {
+  padding: .65rem .9rem; text-align: left; font-size: .75rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+  border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none;
+}
+th:hover { color: var(--blue); }
+th .sort-icon { margin-left: .3rem; opacity: .4; }
+th.sorted .sort-icon { opacity: 1; color: var(--blue); }
+td { padding: .6rem .9rem; border-bottom: 1px solid var(--border); vertical-align: middle; color: var(--text); }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #f8f9fa; }
+.badge {
+  display: inline-block; padding: .15rem .55rem; border-radius: 999px;
+  font-size: .72rem; font-weight: 600;
+}
+.badge-free  { background: #e6f4ea; color: var(--green); }
+.badge-paid  { background: #fce8e6; color: var(--red); }
+.badge-rating { background: #e8f0fe; color: var(--blue); }
+
+/* ===================== PAGINATION ================= */
+.pagination { display: flex; align-items: center; gap: .4rem; margin-top: 1rem; flex-wrap: wrap; }
+.page-btn {
+  min-width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--white); color: var(--text); font-size: .82rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: background .15s;
+}
+.page-btn:hover { background: var(--surface); }
+.page-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+.page-btn:disabled { opacity: .4; cursor: default; }
+.page-info { font-size: .8rem; color: var(--muted); margin-left: .5rem; }
+
+/* ===================== EMPTY STATE ================ */
+.empty-state {
+  text-align: center; padding: 3rem 1.5rem; color: var(--muted);
+}
+.empty-state svg { width: 56px; height: 56px; margin-bottom: 1rem; opacity: .35; }
+.empty-state p { font-size: .9rem; }
+
+/* ===================== TOOLTIPS =================== */
+.chart-tooltip {
+  position: fixed; pointer-events: none; background: rgba(32,33,36,.9); color: #fff;
+  border-radius: 6px; padding: .45rem .7rem; font-size: .78rem; line-height: 1.5;
+  z-index: 999; display: none; max-width: 220px; white-space: pre-line;
+}
+
+/* ===================== LEGEND ===================== */
+.legend { display: flex; flex-wrap: wrap; gap: .6rem .9rem; margin-top: .75rem; }
+.legend-item { display: flex; align-items: center; gap: .35rem; font-size: .78rem; color: var(--muted); }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.legend-line { width: 18px; height: 3px; flex-shrink: 0; }
+
+/* ===================== TABS ======================= */
+.tab-bar { display: flex; gap: .25rem; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem; }
+.tab-btn {
+  background: none; border: none; border-bottom: 2px solid transparent; padding: .55rem .9rem;
+  font-size: .85rem; font-weight: 500; color: var(--muted); cursor: pointer;
+  margin-bottom: -1px; transition: color .15s, border-color .15s;
+}
+.tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
+
+/* ===================== MISC ======================= */
+.text-muted { color: var(--muted); }
+.text-right { text-align: right; }
+.flex-end { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; }
+.search-wrap { position: relative; }
+.search-wrap input { padding-left: 2.2rem !important; }
+.search-icon {
+  position: absolute; left: .7rem; top: 50%; transform: translateY(-50%);
+  color: var(--muted); pointer-events: none;
+}
+.results-count { font-size: .82rem; color: var(--muted); padding: .5rem 0; }
+
+/* bar hover */
+.bar-hover { transition: opacity .15s; }
+.bar-hover:hover { opacity: .8; cursor: pointer; }
+
+/* progress bar */
+.progress-bar-wrap { background: var(--border); border-radius: 99px; height: 6px; flex: 1; min-width: 60px; }
+.progress-bar { height: 100%; border-radius: 99px; }
+</style>
+</head>
+<body>
+
+<!-- ===================== UPLOAD SCREEN ===================== -->
+<div id="upload-screen">
+  <div class="upload-logo">
+    <img class="play-icon" src="google-play-logo.png" alt="Google Play logo"
+         style="object-fit:contain;"/>
+    <div>
+      <h1>Google Play Store Insights</h1>
+      <div style="font-size:.8rem;color:var(--muted);">App Market Analytics Dashboard</div>
+    </div>
+  </div>
+
+  <div class="upload-card">
+    <h2>Load Your Dataset</h2>
+    <p id="upload-card-desc">
+      Looking for <strong>googleplaystore.csv</strong>…
+    </p>
+
+    <!-- Auto-loading spinner (shown while fetching) -->
+    <div class="auto-loading-msg" id="auto-loading-msg">
+      <div class="spinner"></div>
+      <span>Loading googleplaystore.csv automatically…</span>
+    </div>
+
+    <!-- Error box (shown if auto-load fails) -->
+    <div class="error-box" id="auto-error-box">
+      <strong>⚠ Could not load googleplaystore.csv automatically</strong>
+      <span id="auto-error-detail">This usually happens when the dashboard is opened directly as a
+        <code>file://</code> URL. To fix this, serve the folder with a local HTTP server — see
+        <strong>start-server.bat</strong> included in this project — then open
+        <code>http://localhost:8080</code> in your browser.</span>
+    </div>
+
+    <!-- Manual fallback (always available) -->
+    <div class="upload-divider" id="upload-divider"><span>or select the file manually</span></div>
+    <button class="upload-btn" id="manual-upload-btn" onclick="document.getElementById('file-input').click()">
+      📂 &nbsp; Choose googleplaystore.csv
+    </button>
+    <input type="file" id="file-input" accept=".csv" onchange="handleFileUpload(event)"/>
+    <div class="upload-note">Supports the standard Kaggle Google Play Store dataset (googleplaystore.csv)</div>
+    <div class="loading-msg" id="loading-msg">⏳ Processing dataset, please wait…</div>
+  </div>
+</div>
+
+<!-- ===================== MAIN APP ===================== -->
+<div id="app">
+
+  <!-- HEADER -->
+  <header class="header">
+    <a class="header-brand" href="#">
+      <img src="google-play-logo.png" alt="Google Play logo"
+           width="40" height="40"
+           style="object-fit:contain;flex-shrink:0;"/>
+      <div>
+        <div class="brand-title">Play Store Insights</div>
+        <div class="brand-sub">App Market Analytics</div>
+      </div>
+    </a>
+    <nav class="header-nav">
+      <button class="nav-btn active" onclick="showSection('overview')">Overview</button>
+      <button class="nav-btn" onclick="showSection('market')">Market Analysis</button>
+      <button class="nav-btn" onclick="showSection('popularity')">Popularity & Ratings</button>
+      <button class="nav-btn" onclick="showSection('explorer')">App Explorer</button>
+    </nav>
+  </header>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- ====== SECTION 1: OVERVIEW ====== -->
+    <section id="sec-overview" class="section active">
+      <div class="section-title">📊 Overview</div>
+      <div class="section-subtitle">A high-level summary of the Google Play Store app market dataset.</div>
+
+      <!-- KPI row -->
+      <div class="kpi-grid" id="kpi-grid"></div>
+
+      <!-- Insights -->
+      <div class="insights-box" id="insights-box">
+        <h3>🔍 Key Findings</h3>
+        <ul class="insights-list" id="insights-list"></ul>
+      </div>
+
+      <!-- Charts row 1 -->
+      <div class="grid-2 mb-1">
+        <div class="card">
+          <div class="card-title">App Distribution by Category</div>
+          <div class="card-subtitle">Top 15 categories by app count</div>
+          <div class="chart-wrap" style="height:380px;"><canvas id="chart-cat-count"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Free vs Paid Apps</div>
+          <div class="card-subtitle">Share of free and paid applications</div>
+          <div class="chart-wrap" style="height:380px;"><canvas id="chart-free-paid"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Charts row 2 -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Rating Distribution</div>
+          <div class="card-subtitle">Distribution of app ratings (valid ratings only)</div>
+          <div class="chart-wrap" style="height:280px;"><canvas id="chart-rating-dist"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Content Rating Breakdown</div>
+          <div class="card-subtitle">Apps grouped by content rating audience</div>
+          <div class="chart-wrap" style="height:280px;"><canvas id="chart-content-rating"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====== SECTION 2: MARKET & CATEGORY ANALYSIS ====== -->
+    <section id="sec-market" class="section">
+      <div class="section-title">🏪 Market & Category Analysis</div>
+      <div class="section-subtitle">Detailed comparisons across app categories — counts, ratings, and distributions.</div>
+
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchMarketTab('by-count')">Apps by Category</button>
+        <button class="tab-btn" onclick="switchMarketTab('avg-rating')">Avg Rating by Category</button>
+        <button class="tab-btn" onclick="switchMarketTab('rating-dist')">Rating Distribution</button>
+      </div>
+
+      <!-- Tab: by-count -->
+      <div id="market-tab-by-count">
+        <div class="card mb-1">
+          <div class="card-title">Number of Apps by Category</div>
+          <div class="card-subtitle">All categories ranked by total app count (deduped by app name)</div>
+          <div class="chart-wrap" style="height:560px;"><canvas id="chart-market-count"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Tab: avg-rating -->
+      <div id="market-tab-avg-rating" style="display:none;">
+        <div class="card mb-1">
+          <div class="card-title">Average Rating by Category</div>
+          <div class="card-subtitle">Categories with ≥ 10 apps — rated from highest to lowest average</div>
+          <div class="chart-wrap" style="height:560px;"><canvas id="chart-market-rating"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Tab: rating-dist -->
+      <div id="market-tab-rating-dist" style="display:none;">
+        <div class="filter-bar">
+          <div class="filter-group">
+            <label>Select Category</label>
+            <select id="cat-dist-select" onchange="renderCatRatingDist()"></select>
+          </div>
+        </div>
+        <div class="card mb-1">
+          <div class="card-title">Rating Distribution for Selected Category</div>
+          <div class="card-subtitle" id="cat-dist-subtitle"></div>
+          <div class="chart-wrap" style="height:300px;"><canvas id="chart-cat-dist"></canvas></div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">Free vs Paid in Category</div>
+            <div class="chart-wrap" style="height:220px;"><canvas id="chart-cat-freepaid"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Category Summary</div>
+            <div id="cat-summary-table"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====== SECTION 3: POPULARITY & RATINGS ====== -->
+    <section id="sec-popularity" class="section">
+      <div class="section-title">⭐ Popularity & Rating Insights</div>
+      <div class="section-subtitle">Exploring installation patterns, top apps, and relationships between ratings and popularity.</div>
+
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchPopTab('top-apps')">Top Apps</button>
+        <button class="tab-btn" onclick="switchPopTab('installs')">Install Distribution</button>
+        <button class="tab-btn" onclick="switchPopTab('scatter')">Rating vs Reviews</button>
+        <button class="tab-btn" onclick="switchPopTab('free-paid')">Free vs Paid</button>
+      </div>
+
+      <!-- Tab: top-apps -->
+      <div id="pop-tab-top-apps">
+        <div class="grid-2 mb-1">
+          <div class="card">
+            <div class="card-title">Top 15 Apps by Installations</div>
+            <div class="card-subtitle">Up to 3 representative apps per install bracket — log scale reveals order-of-magnitude differences</div>
+            <div class="chart-wrap" style="height:460px;"><canvas id="chart-top-installs"></canvas></div>
+            <div style="font-size:.74rem;color:var(--muted);margin-top:.5rem;line-height:1.5;">
+              ℹ️ <em>Values are <strong>reported minimum install brackets</strong> (e.g. <strong>1B+</strong> means ≥ 1 billion installs), not exact counts.
+              Up to 3 representative apps are shown per bracket to keep bars visually distinguishable.
+              The x-axis uses a <strong>logarithmic scale</strong> so the full range from millions to billions remains readable.
+              Apps sharing the same bracket have equal bar lengths — that is an accurate reflection of the data, not a rendering error.</em>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Top 15 Apps by Review Count</div>
+            <div class="card-subtitle">Maximum reported reviews per unique app</div>
+            <div class="chart-wrap" style="height:420px;"><canvas id="chart-top-reviews"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: installs -->
+      <div id="pop-tab-installs" style="display:none;">
+        <div class="card mb-1">
+          <div class="card-title">Installation Count Distribution</div>
+          <div class="card-subtitle">Count of apps in each install bracket (log-scale x-axis represents order-of-magnitude buckets)</div>
+          <div class="chart-wrap" style="height:320px;"><canvas id="chart-install-dist"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Average Rating by Install Bracket</div>
+          <div class="card-subtitle">Does more installs correlate with higher ratings? Note: correlation does not imply causation.</div>
+          <div class="chart-wrap" style="height:300px;"><canvas id="chart-install-rating"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Tab: scatter -->
+      <div id="pop-tab-scatter" style="display:none;">
+        <div class="card mb-1">
+          <div class="card-title">Rating vs Review Count</div>
+          <div class="card-subtitle">Each dot represents one unique app. X-axis uses a logarithmic scale for review count due to high skew. Dot opacity reflects density.</div>
+          <div class="chart-wrap" style="height:400px;"><canvas id="chart-scatter"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Tab: free-paid -->
+      <div id="pop-tab-free-paid" style="display:none;">
+        <div class="grid-2 mb-1">
+          <div class="card">
+            <div class="card-title">Rating Distribution: Free vs Paid</div>
+            <div class="card-subtitle">Comparing rating spread between free and paid apps</div>
+            <div class="chart-wrap" style="height:300px;"><canvas id="chart-fp-rating-dist"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Price vs Rating (Paid Apps)</div>
+            <div class="card-subtitle">Relationship between app price and average rating. Does price signal quality?</div>
+            <div class="chart-wrap" style="height:300px;"><canvas id="chart-price-rating"></canvas></div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">Average Installations: Free vs Paid</div>
+            <div class="chart-wrap" style="height:220px;"><canvas id="chart-fp-installs"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Free vs Paid by Category (Top 10)</div>
+            <div class="chart-wrap" style="height:220px;"><canvas id="chart-fp-by-cat"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====== SECTION 4: APP EXPLORER ====== -->
+    <section id="sec-explorer" class="section">
+      <div class="section-title">🔎 App Explorer</div>
+      <div class="section-subtitle">Search, filter, sort, and explore individual applications from the dataset.</div>
+
+      <!-- Filters -->
+      <div class="filter-bar">
+        <div class="filter-group" style="flex:1;min-width:200px;">
+          <label>Search App Name</label>
+          <div class="search-wrap">
+            <span class="search-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </span>
+            <input type="text" id="exp-search" placeholder="e.g. Instagram, WhatsApp…" oninput="explorerFilter()" style="width:100%"/>
+          </div>
+        </div>
+        <div class="filter-group">
+          <label>Category</label>
+          <select id="exp-category" onchange="explorerFilter()"><option value="">All Categories</option></select>
+        </div>
+        <div class="filter-group">
+          <label>Type</label>
+          <select id="exp-type" onchange="explorerFilter()">
+            <option value="">All Types</option>
+            <option value="Free">Free</option>
+            <option value="Paid">Paid</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Min Rating</label>
+          <select id="exp-rating" onchange="explorerFilter()">
+            <option value="">Any</option>
+            <option value="4.5">4.5+</option>
+            <option value="4.0">4.0+</option>
+            <option value="3.5">3.5+</option>
+            <option value="3.0">3.0+</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Min Installs</label>
+          <select id="exp-installs" onchange="explorerFilter()">
+            <option value="">Any</option>
+            <option value="1000000000">1B+</option>
+            <option value="500000000">500M+</option>
+            <option value="100000000">100M+</option>
+            <option value="10000000">10M+</option>
+            <option value="1000000">1M+</option>
+            <option value="100000">100K+</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>&nbsp;</label>
+          <button class="btn btn-secondary" onclick="resetExplorer()">Reset Filters</button>
+        </div>
+      </div>
+
+      <div class="flex-end">
+        <div class="results-count" id="exp-results-count"></div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="explorerSort('App')">#&nbsp; App <span class="sort-icon" id="sort-App">↕</span></th>
+              <th onclick="explorerSort('Category')">Category <span class="sort-icon" id="sort-Category">↕</span></th>
+              <th onclick="explorerSort('Rating')">Rating <span class="sort-icon" id="sort-Rating">↕</span></th>
+              <th onclick="explorerSort('Installs')">Installs <span class="sort-icon" id="sort-Installs">↕</span></th>
+              <th onclick="explorerSort('Reviews')">Reviews <span class="sort-icon" id="sort-Reviews">↕</span></th>
+              <th onclick="explorerSort('Type')">Type <span class="sort-icon" id="sort-Type">↕</span></th>
+              <th onclick="explorerSort('Price')">Price <span class="sort-icon" id="sort-Price">↕</span></th>
+            </tr>
+          </thead>
+          <tbody id="exp-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="pagination" id="exp-pagination"></div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="footer-left">Google Play Store Insights — App Market Analytics Dashboard &nbsp;·&nbsp; Data source: Kaggle Google Play Store Dataset</div>
+    <div class="footer-right"><strong>Created by Regina Adelisa</strong><br><span style="font-size:.72rem;">Data Analytics Portfolio</span></div>
+  </footer>
+</div>
+
+<!-- Tooltip element -->
+<div class="chart-tooltip" id="tooltip"></div>
+
+<script>
+/* ========================================================
+   GOOGLE PLAY STORE INSIGHTS — APP MARKET ANALYTICS DASHBOARD
+   Created by Regina Adelisa
+   ======================================================== */
+
+// ─── GLOBALS ────────────────────────────────────────────
+let RAW = [];          // raw parsed CSV rows
+let APPS = [];         // deduplicated, cleaned app records
+let CATEGORIES = [];   // sorted unique category names
+
+// Explorer state
+let expFiltered = [];
+let expSortCol  = 'Installs';
+let expSortDir  = -1; // -1 = desc
+let expPage     = 1;
+const EXP_PER_PAGE = 25;
+
+// ─── AUTO-LOAD ───────────────────────────────────────────
+// Attempt to fetch the CSV from the same directory as index.html.
+// This requires an HTTP server (file:// blocks fetch). On failure the
+// upload screen stays visible so the user can select the file manually.
+(function autoLoad() {
+  const autoMsg  = document.getElementById('auto-loading-msg');
+  const errorBox = document.getElementById('auto-error-box');
+  const divider  = document.getElementById('upload-divider');
+  const manualBtn= document.getElementById('manual-upload-btn');
+  const desc     = document.getElementById('upload-card-desc');
+
+  // Hide manual controls initially (they become visible on error)
+  divider.style.display  = 'none';
+  manualBtn.style.display= 'none';
+  desc.innerHTML         = 'Looking for <strong>googleplaystore.csv</strong>\u2026';
+
+  fetch('googleplaystore.csv')
+    .then(function(res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.text();
+    })
+    .then(function(text) {
+      autoMsg.style.display = 'none';
+      try {
+        processCSV(text);
+      } catch(err) {
+        showAutoError('Dataset loaded but could not be parsed: ' + err.message);
+      }
+    })
+    .catch(function(err) {
+      autoMsg.style.display = 'none';
+      showAutoError(
+        'fetch() failed — most likely because this page was opened as a ' +
+        '<code>file://</code> URL. Run <strong>start-server.bat</strong> and ' +
+        'open <code>http://localhost:8080</code> instead. ' +
+        '(Detail: ' + err.message + ')'
+      );
+    });
+
+  function showAutoError(detail) {
+    errorBox.style.display = 'block';
+    document.getElementById('auto-error-detail').innerHTML = detail;
+    divider.style.display   = '';
+    manualBtn.style.display = '';
+    desc.innerHTML = 'Automatic loading failed. Select the file manually:';
+  }
+})();
+
+// ─── FILE UPLOAD (manual fallback) ──────────────────────
+function handleFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const msg = document.getElementById('loading-msg');
+  msg.style.display = 'block';
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      processCSV(ev.target.result);
+    } catch(err) {
+      msg.textContent = '❌ Error processing file: ' + err.message;
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ─── CSV PARSER ─────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/);
+  if (!lines.length) return [];
+  const headers = parseCSVLine(lines[0]);
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const vals = parseCSVLine(line);
+    if (vals.length < headers.length - 2) continue; // skip malformed
+    const row = {};
+    headers.forEach((h, idx) => { row[h.trim()] = (vals[idx] || '').trim(); });
+    rows.push(row);
+  }
+  return rows;
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let cur = '', inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuote && line[i+1] === '"') { cur += '"'; i++; }
+      else { inQuote = !inQuote; }
+    } else if (ch === ',' && !inQuote) {
+      result.push(cur); cur = '';
+    } else { cur += ch; }
+  }
+  result.push(cur);
+  return result;
+}
+
+// ─── PARSE HELPERS ──────────────────────────────────────
+function parseInstalls(s) {
+  if (!s || s === 'Free' || s === '') return 0;
+  return parseInt(s.replace(/[^0-9]/g, ''), 10) || 0;
+}
+
+function parseReviews(s) {
+  if (!s) return 0;
+  return parseInt(s.replace(/[^0-9]/g, ''), 10) || 0;
+}
+
+function parsePrice(s) {
+  if (!s || s === '0' || s.toLowerCase() === 'free' || s === 'everyone') return 0;
+  return parseFloat(s.replace(/[^0-9.]/g, '')) || 0;
+}
+
+function parseRating(s) {
+  const v = parseFloat(s);
+  if (isNaN(v) || v < 1 || v > 5) return null;
+  return v;
+}
+
+function parseSize(s) {
+  if (!s || s.toLowerCase().includes('varies')) return null;
+  if (s.endsWith('M') || s.endsWith('m')) return parseFloat(s) || null;
+  if (s.endsWith('k') || s.endsWith('K')) return (parseFloat(s) / 1024) || null;
+  return null; // unknown unit
+}
+
+// ─── DATA PROCESSING ────────────────────────────────────
+function processCSV(text) {
+  RAW = parseCSV(text);
+
+  // Clean and normalize each row
+  const cleaned = RAW.map(r => ({
+    App:           r['App'] || '',
+    Category:      r['Category'] || '',
+    Rating:        parseRating(r['Rating']),
+    Reviews:       parseReviews(r['Reviews']),
+    Size:          parseSize(r['Size']),
+    Installs:      parseInstalls(r['Installs']),
+    InstallsLabel: (r['Installs'] || '').replace(/"/g,'').trim(),
+    Type:          r['Type'] === 'Paid' ? 'Paid' : (r['Type'] === 'Free' ? 'Free' : ''),
+    Price:         parsePrice(r['Price']),
+    ContentRating: r['Content Rating'] || '',
+    Genres:        r['Genres'] || '',
+  })).filter(r => r.App && r.Category && r.Category !== '1.9'); // remove junk rows
+
+  // Deduplicate: for each unique app name keep the record with the
+  // highest Installs value; break ties by taking the highest Reviews count.
+  // This ensures the Top-15-by-Installs chart reflects the maximum reported
+  // install bracket rather than the record that happened to have most reviews.
+  const appMap = new Map();
+  for (const r of cleaned) {
+    const key = r.App.toLowerCase();
+    const prev = appMap.get(key);
+    if (!prev ||
+        r.Installs > prev.Installs ||
+        (r.Installs === prev.Installs && r.Reviews > prev.Reviews)) {
+      appMap.set(key, r);
+    }
+  }
+  APPS = Array.from(appMap.values());
+
+  // Normalize categories (some have spaces around underscore)
+  APPS.forEach(a => { a.Category = a.Category.trim().toUpperCase(); });
+
+  // Sorted unique categories
+  CATEGORIES = [...new Set(APPS.map(a => a.Category))].sort();
+
+  // Proceed to render
+  initDashboard();
+}
+
+// ─── INIT ────────────────────────────────────────────────
+let _dashboardInitialized = false;
+// Track which sections have been rendered at least once with correct dimensions.
+// Sections not yet rendered are drawn lazily on first navigation to them.
+const _sectionRendered = { overview: false, market: false, popularity: false };
+
+function initDashboard() {
+  // Guard against double-initialization (e.g. auto-load followed by manual upload).
+  if (_dashboardInitialized) {
+    // Clear and repopulate category dropdowns before re-rendering
+    const expCat = document.getElementById('exp-category');
+    const catSel = document.getElementById('cat-dist-select');
+    while (expCat.options.length > 1) expCat.remove(1);
+    while (catSel.options.length > 0) catSel.remove(0);
+    // Mark all sections as needing a redraw on next visit
+    _sectionRendered.overview = false;
+    _sectionRendered.market   = false;
+    _sectionRendered.popularity = false;
+  }
+  _dashboardInitialized = true;
+
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+
+  populateCategoryFilters();
+  renderExplorer(); // no canvas — safe to call immediately
+
+  // Render only the active (overview) section now that it is visible and laid out.
+  // All other sections are hidden (display:none) at this point so their canvas parents
+  // report clientWidth=0 — deferDraw waits one rAF to guarantee a layout pass first.
+  deferDraw(function() {
+    renderOverview();
+    _sectionRendered.overview = true;
+  });
+}
+
+// ─── deferDraw ────────────────────────────────────────────
+// Schedule fn inside requestAnimationFrame so the browser has completed
+// layout for any newly-visible element before we read clientWidth/clientHeight.
+function deferDraw(fn) {
+  requestAnimationFrame(function() {
+    requestAnimationFrame(fn); // double-rAF ensures style recalc + layout are done
+  });
+}
+
+// ─── NAV ─────────────────────────────────────────────────
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec-' + id).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+
+  // After the section becomes visible (one paint frame later), redraw its charts
+  // so canvas dimensions are measured against the fully-laid-out container.
+  deferDraw(function() {
+    if (id === 'overview') {
+      renderOverview();
+      _sectionRendered.overview = true;
+    } else if (id === 'market') {
+      renderMarketAnalysis();
+      _sectionRendered.market = true;
+      // Also draw the active market sub-tab's charts (may differ from by-count)
+      var activeMTab = document.querySelector('#sec-market .tab-btn.active');
+      var mTabIdx = activeMTab ? Array.from(document.querySelectorAll('#sec-market .tab-btn')).indexOf(activeMTab) : 0;
+      if (mTabIdx === 2) renderCatRatingDist(); // rating-dist sub-tab
+    } else if (id === 'popularity') {
+      renderPopularity();
+      _sectionRendered.popularity = true;
+    }
+    // explorer has no canvas charts — nothing to redraw
+  });
+}
+
+// ─── POPULATE FILTERS ────────────────────────────────────
+function populateCategoryFilters() {
+  // Explorer category
+  const expCat = document.getElementById('exp-category');
+  CATEGORIES.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c; o.textContent = fmtCatLabel(c);
+    expCat.appendChild(o);
+  });
+
+  // Market rating dist select
+  const catSel = document.getElementById('cat-dist-select');
+  CATEGORIES.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c; o.textContent = fmtCatLabel(c);
+    catSel.appendChild(o);
+  });
+  // Do NOT call renderCatRatingDist() here — the market section is hidden at this point
+  // (display:none), so canvas.parentElement.clientWidth = 0 → blurry chart.
+  // It will be drawn lazily when the user first navigates to the Market section.
+}
+
+function fmtCatLabel(cat) {
+  return cat.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+}
+
+function fmtNum(n) {
+  if (n >= 1e9) return (n/1e9).toFixed(1)+'B';
+  if (n >= 1e6) return (n/1e6).toFixed(1)+'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1)+'K';
+  return n.toLocaleString();
+}
+
+function fmtInstalls(n) {
+  if (!n) return '0';
+  if (n >= 1e9) return '1B+';
+  if (n >= 5e8) return '500M+';
+  if (n >= 1e8) return '100M+';
+  if (n >= 5e7) return '50M+';
+  if (n >= 1e7) return '10M+';
+  if (n >= 5e6) return '5M+';
+  if (n >= 1e6) return '1M+';
+  if (n >= 5e5) return '500K+';
+  if (n >= 1e5) return '100K+';
+  if (n >= 5e4) return '50K+';
+  if (n >= 1e4) return '10K+';
+  if (n >= 5e3) return '5K+';
+  if (n >= 1e3) return '1K+';
+  if (n >= 5e2) return '500+';
+  if (n >= 1e2) return '100+';
+  return n + '+';
+}
+
+// Format the raw CSV InstallsLabel (e.g. "1,000,000,000+") into a short readable label
+// such as "1B+" preserving the original bracket semantics.
+function fmtInstallBracket(raw) {
+  if (!raw) return '?';
+  // Strip commas and whitespace, keep digits and the trailing +
+  const clean = raw.replace(/,/g, '').replace(/\s/g, '');
+  const num = parseInt(clean.replace(/[^0-9]/g, ''), 10);
+  if (isNaN(num)) return raw;
+  const hasPlusSign = clean.includes('+');
+  const suffix = hasPlusSign ? '+' : '';
+  if (num >= 1e9) return (num / 1e9 % 1 === 0 ? (num/1e9) : (num/1e9).toFixed(1)) + 'B' + suffix;
+  if (num >= 1e6) return (num / 1e6 % 1 === 0 ? (num/1e6) : (num/1e6).toFixed(1)) + 'M' + suffix;
+  if (num >= 1e3) return (num / 1e3 % 1 === 0 ? (num/1e3) : (num/1e3).toFixed(1)) + 'K' + suffix;
+  return num + suffix;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  SECTION 1: OVERVIEW
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderOverview() {
+  const rated  = APPS.filter(a => a.Rating !== null);
+  const avgRat = rated.reduce((s,a) => s+a.Rating, 0) / rated.length;
+  const freeN  = APPS.filter(a => a.Type === 'Free').length;
+  const paidN  = APPS.filter(a => a.Type === 'Paid').length;
+  const totalTyped = freeN + paidN;
+  const freePct = totalTyped ? ((freeN/totalTyped)*100).toFixed(1) : 0;
+
+  // KPI Grid
+  document.getElementById('kpi-grid').innerHTML = `
+    <div class="kpi-card accent-blue">
+      <div class="kpi-label">Total Unique Apps</div>
+      <div class="kpi-value">${fmtNum(APPS.length)}</div>
+      <div class="kpi-sub">After deduplication</div>
+    </div>
+    <div class="kpi-card accent-green">
+      <div class="kpi-label">Avg Valid Rating</div>
+      <div class="kpi-value">${avgRat.toFixed(2)}</div>
+      <div class="kpi-sub">Based on ${fmtNum(rated.length)} rated apps</div>
+    </div>
+    <div class="kpi-card accent-yellow">
+      <div class="kpi-label">Unique Categories</div>
+      <div class="kpi-value">${CATEGORIES.length}</div>
+      <div class="kpi-sub">App categories in dataset</div>
+    </div>
+    <div class="kpi-card accent-red">
+      <div class="kpi-label">Free Apps</div>
+      <div class="kpi-value">${freePct}%</div>
+      <div class="kpi-sub">${fmtNum(freeN)} free · ${fmtNum(paidN)} paid</div>
+    </div>
+  `;
+
+  // Dynamic insights
+  const catCounts = groupBy(APPS, 'Category');
+  const sortedCats = Object.entries(catCounts).sort((a,b)=>b[1].length - a[1].length);
+  const topCat = sortedCats[0];
+  const topInstallApp = APPS.reduce((best, a) => a.Installs > (best?.Installs||0) ? a : best, null);
+  const ratedCats = Object.entries(catCounts).map(([cat, apps]) => {
+    const r = apps.filter(a=>a.Rating!==null);
+    return { cat, avg: r.length >= 10 ? r.reduce((s,a)=>s+a.Rating,0)/r.length : 0, count: r.length };
+  }).filter(c => c.avg > 0).sort((a,b)=>b.avg - a.avg);
+  const topRatedCat = ratedCats[0];
+  const unratedPct = ((1 - rated.length/APPS.length)*100).toFixed(1);
+  const bigInstall = APPS.filter(a=>a.Installs >= 1e9).length;
+  const gameCount = (catCounts['GAME'] || []).length;
+
+  document.getElementById('insights-list').innerHTML = [
+    `The dataset contains <strong>${fmtNum(APPS.length)}</strong> unique apps across <strong>${CATEGORIES.length}</strong> categories after deduplication.`,
+    `The largest category is <strong>${fmtCatLabel(topCat[0])}</strong> with <strong>${fmtNum(topCat[1].length)}</strong> apps.`,
+    `<strong>${freePct}%</strong> of apps are free, reflecting the freemium-dominant nature of the Play Store.`,
+    `The average valid rating is <strong>${avgRat.toFixed(2)} / 5.0</strong>; <strong>${unratedPct}%</strong> of apps have no valid rating recorded.`,
+    topInstallApp ? `The most installed app is <strong>${topInstallApp.App}</strong> with <strong>${fmtInstalls(topInstallApp.Installs)}</strong> installs.` : '',
+    bigInstall ? `<strong>${fmtNum(bigInstall)}</strong> apps have achieved 1 billion or more installs.` : '',
+    topRatedCat ? `The highest-rated category (min. 10 apps) is <strong>${fmtCatLabel(topRatedCat.cat)}</strong> with an average of <strong>${topRatedCat.avg.toFixed(2)}</strong>.` : '',
+    gameCount ? `<strong>GAME</strong> is a major segment with <strong>${fmtNum(gameCount)}</strong> apps, reflecting the dominance of mobile gaming.` : ''
+  ].filter(Boolean).map(t => `<li>${t}</li>`).join('');
+
+  // Charts
+  renderBarChartH('chart-cat-count', sortedCats.slice(0,15).map(([c])=>fmtCatLabel(c)), sortedCats.slice(0,15).map(([,v])=>v.length), '#4285F4', 'Apps');
+  renderDonutChart('chart-free-paid', ['Free','Paid'], [freeN, paidN], ['#34A853','#EA4335']);
+
+  // Rating distribution histogram
+  const buckets = [1,1.5,2,2.5,3,3.5,4,4.5,5];
+  const ratCounts = buckets.map((lo,i) => {
+    const hi = buckets[i+1] || 5.1;
+    return rated.filter(a => a.Rating >= lo && a.Rating < hi).length;
+  });
+  renderBarChartV('chart-rating-dist', buckets.map((b,i) => b.toFixed(1)+'–'+(buckets[i+1]||5.0).toFixed(1)), ratCounts, '#4285F4', 'Apps');
+
+  // Content rating
+  const crCounts = groupBy(APPS, 'ContentRating');
+  const crLabels = Object.keys(crCounts).filter(k=>k).sort((a,b)=>crCounts[b].length - crCounts[a].length);
+  renderDonutChart('chart-content-rating', crLabels, crLabels.map(k=>crCounts[k].length), ['#4285F4','#34A853','#FBBC04','#EA4335','#8E24AA','#00ACC1']);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  SECTION 2: MARKET ANALYSIS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderMarketAnalysis() {
+  const catCounts = groupBy(APPS, 'Category');
+  const sortedByCount = Object.entries(catCounts).sort((a,b)=>b[1].length-a[1].length);
+
+  renderBarChartH('chart-market-count',
+    sortedByCount.map(([c])=>fmtCatLabel(c)),
+    sortedByCount.map(([,v])=>v.length),
+    '#4285F4', 'Apps');
+
+  // Avg rating by category (min 10 apps)
+  const catRatings = Object.entries(catCounts).map(([cat, apps]) => {
+    const r = apps.filter(a=>a.Rating!==null);
+    return { cat, avg: r.length >= 10 ? r.reduce((s,a)=>s+a.Rating,0)/r.length : null, count: apps.length };
+  }).filter(c=>c.avg !== null).sort((a,b)=>b.avg-a.avg);
+
+  renderBarChartH('chart-market-rating',
+    catRatings.map(c=>fmtCatLabel(c.cat)),
+    catRatings.map(c=>+c.avg.toFixed(3)),
+    '#34A853', 'Avg Rating', [0, 5]);
+}
+
+function switchMarketTab(tab) {
+  ['by-count','avg-rating','rating-dist'].forEach(t => {
+    document.getElementById('market-tab-'+t).style.display = t===tab ? '' : 'none';
+  });
+  document.querySelectorAll('#sec-market .tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['by-count','avg-rating','rating-dist'][i] === tab);
+  });
+  // Defer chart draws until after the newly-visible tab container has been laid out.
+  // Charts in previously-hidden divs read clientWidth=0, causing blurry scaled canvases.
+  deferDraw(function() {
+    if (tab === 'by-count') {
+      // Redraw the count chart in case it was first drawn while hidden
+      const catCounts = groupBy(APPS, 'Category');
+      const sortedByCount = Object.entries(catCounts).sort((a,b)=>b[1].length-a[1].length);
+      renderBarChartH('chart-market-count',
+        sortedByCount.map(([c])=>fmtCatLabel(c)),
+        sortedByCount.map(([,v])=>v.length),
+        '#4285F4', 'Apps');
+    } else if (tab === 'avg-rating') {
+      const catCounts2 = groupBy(APPS, 'Category');
+      const catRatings = Object.entries(catCounts2).map(([cat, apps]) => {
+        const r = apps.filter(a=>a.Rating!==null);
+        return { cat, avg: r.length >= 10 ? r.reduce((s,a)=>s+a.Rating,0)/r.length : null };
+      }).filter(c=>c.avg !== null).sort((a,b)=>b.avg-a.avg);
+      renderBarChartH('chart-market-rating',
+        catRatings.map(c=>fmtCatLabel(c.cat)),
+        catRatings.map(c=>+c.avg.toFixed(3)),
+        '#34A853', 'Avg Rating', [0, 5]);
+    } else if (tab === 'rating-dist') {
+      renderCatRatingDist();
+    }
+  });
+}
+
+function renderCatRatingDist() {
+  const cat = document.getElementById('cat-dist-select').value;
+  if (!cat) return;
+  const apps = APPS.filter(a=>a.Category===cat);
+  const rated = apps.filter(a=>a.Rating!==null);
+
+  document.getElementById('cat-dist-subtitle').textContent =
+    `${fmtCatLabel(cat)}: ${apps.length} apps, ${rated.length} with valid ratings`;
+
+  const buckets = [1,1.5,2,2.5,3,3.5,4,4.5,5];
+  const counts = buckets.map((lo,i) => {
+    const hi = buckets[i+1] || 5.1;
+    return rated.filter(a=>a.Rating>=lo&&a.Rating<hi).length;
+  });
+  renderBarChartV('chart-cat-dist', buckets.map((b,i)=>b.toFixed(1)+'–'+(buckets[i+1]||5.0).toFixed(1)), counts, '#4285F4', 'Apps');
+
+  // Free/Paid donut
+  const free = apps.filter(a=>a.Type==='Free').length;
+  const paid = apps.filter(a=>a.Type==='Paid').length;
+  renderDonutChart('chart-cat-freepaid', ['Free','Paid'], [free,paid], ['#34A853','#EA4335']);
+
+  // Summary
+  const avgRat = rated.length ? (rated.reduce((s,a)=>s+a.Rating,0)/rated.length).toFixed(2) : 'N/A';
+  const avgInst = apps.length ? fmtNum(Math.round(apps.reduce((s,a)=>s+a.Installs,0)/apps.length)) : 'N/A';
+  document.getElementById('cat-summary-table').innerHTML = `
+    <table style="width:100%;font-size:.85rem;">
+      <tr><td style="padding:.4rem .2rem;color:var(--muted)">Total Apps</td><td style="text-align:right;font-weight:600">${apps.length}</td></tr>
+      <tr><td style="padding:.4rem .2rem;color:var(--muted)">Avg Rating</td><td style="text-align:right;font-weight:600">${avgRat}</td></tr>
+      <tr><td style="padding:.4rem .2rem;color:var(--muted)">Free Apps</td><td style="text-align:right;font-weight:600">${free}</td></tr>
+      <tr><td style="padding:.4rem .2rem;color:var(--muted)">Paid Apps</td><td style="text-align:right;font-weight:600">${paid}</td></tr>
+      <tr><td style="padding:.4rem .2rem;color:var(--muted)">Avg Installs</td><td style="text-align:right;font-weight:600">${avgInst}</td></tr>
+    </table>`;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  SECTION 3: POPULARITY & RATINGS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderPopularity() {
+  // Top 15 by installations — sample across distinct brackets for visual clarity.
+  // Within each bracket, pick the app with the most reviews (most-established representative).
+  // This ensures bars span different lengths while remaining fully data-accurate.
+  const topInst = buildTop15ByInstalls(APPS);
+  renderBarChartHLog('chart-top-installs',
+    topInst.map(a=>a.App.length>30?a.App.slice(0,28)+'…':a.App),
+    topInst.map(a=>a.Installs),
+    topInst.map(a=>fmtInstallBracket(a.InstallsLabel)),
+    '#4285F4');
+
+  // Top apps by reviews
+  const topRev = [...APPS].sort((a,b)=>b.Reviews-a.Reviews).slice(0,15);
+  renderBarChartH('chart-top-reviews',
+    topRev.map(a=>a.App.length>28?a.App.slice(0,26)+'…':a.App),
+    topRev.map(a=>a.Reviews),
+    '#34A853', 'Reviews');
+
+  // Install distribution
+  const BRACKETS = [
+    {lo:0,     hi:500,      label:'<500'},
+    {lo:500,   hi:1000,     label:'500+'},
+    {lo:1000,  hi:5000,     label:'1K+'},
+    {lo:5000,  hi:10000,    label:'5K+'},
+    {lo:10000, hi:50000,    label:'10K+'},
+    {lo:50000, hi:100000,   label:'50K+'},
+    {lo:100000,hi:500000,   label:'100K+'},
+    {lo:500000,hi:1000000,  label:'500K+'},
+    {lo:1e6,   hi:5e6,      label:'1M+'},
+    {lo:5e6,   hi:1e7,      label:'5M+'},
+    {lo:1e7,   hi:5e7,      label:'10M+'},
+    {lo:5e7,   hi:1e8,      label:'50M+'},
+    {lo:1e8,   hi:5e8,      label:'100M+'},
+    {lo:5e8,   hi:1e9,      label:'500M+'},
+    {lo:1e9,   hi:Infinity, label:'1B+'},
+  ];
+  const instCounts = BRACKETS.map(b => APPS.filter(a=>a.Installs>=b.lo&&a.Installs<b.hi).length);
+  renderBarChartV('chart-install-dist', BRACKETS.map(b=>b.label), instCounts, '#4285F4', 'Apps');
+
+  // Avg rating by install bracket
+  const avgRatByBracket = BRACKETS.map(b => {
+    const grp = APPS.filter(a=>a.Installs>=b.lo&&a.Installs<b.hi&&a.Rating!==null);
+    return grp.length ? grp.reduce((s,a)=>s+a.Rating,0)/grp.length : null;
+  });
+  renderLineChart('chart-install-rating', BRACKETS.map(b=>b.label), avgRatByBracket, '#34A853', 'Avg Rating');
+
+  // Scatter: rating vs reviews (sample up to 1000 for perf)
+  const rated = APPS.filter(a=>a.Rating!==null&&a.Reviews>0);
+  const sample = rated.length > 1000 ? sampleArr(rated, 1000) : rated;
+  renderScatterChart('chart-scatter', sample.map(a=>({x:a.Reviews, y:a.Rating, label:a.App})));
+
+  // Free vs Paid rating distribution
+  const freeApps = APPS.filter(a=>a.Type==='Free'&&a.Rating!==null);
+  const paidApps = APPS.filter(a=>a.Type==='Paid'&&a.Rating!==null);
+  const buckets = [1,1.5,2,2.5,3,3.5,4,4.5,5];
+  const freeRatCounts = buckets.map((lo,i)=>{const hi=buckets[i+1]||5.1;return freeApps.filter(a=>a.Rating>=lo&&a.Rating<hi).length;});
+  const paidRatCounts = buckets.map((lo,i)=>{const hi=buckets[i+1]||5.1;return paidApps.filter(a=>a.Rating>=lo&&a.Rating<hi).length;});
+  renderGroupedBarChart('chart-fp-rating-dist', buckets.map((b,i)=>b.toFixed(1)+'–'+(buckets[i+1]||5.0).toFixed(1)),
+    [{label:'Free',data:freeRatCounts,color:'#34A853'},{label:'Paid',data:paidRatCounts,color:'#EA4335'}]);
+
+  // Price vs rating (paid apps) — linear x-axis since prices are small numbers
+  const paidAll = APPS.filter(a=>a.Type==='Paid'&&a.Price>0&&a.Rating!==null);
+  renderScatterChart('chart-price-rating', paidAll.map(a=>({x:a.Price, y:a.Rating, label:a.App})), 'Price ($)', '#EA4335', false);
+
+  // Avg installs free vs paid
+  const freeInst = APPS.filter(a=>a.Type==='Free').reduce((s,a)=>s+a.Installs,0);
+  const paidInst = APPS.filter(a=>a.Type==='Paid').reduce((s,a)=>s+a.Installs,0);
+  const freeAvg  = APPS.filter(a=>a.Type==='Free').length ? freeInst/APPS.filter(a=>a.Type==='Free').length : 0;
+  const paidAvg  = APPS.filter(a=>a.Type==='Paid').length ? paidInst/APPS.filter(a=>a.Type==='Paid').length : 0;
+  renderBarChartV('chart-fp-installs', ['Free Apps','Paid Apps'], [Math.round(freeAvg), Math.round(paidAvg)],
+    ['#34A853','#EA4335'], 'Avg Installs', null, true);
+
+  // Free vs paid by top 10 categories
+  const catCounts = groupBy(APPS.filter(a=>a.Type==='Free'||a.Type==='Paid'), 'Category');
+  const topCats = Object.entries(groupBy(APPS,'Category')).sort((a,b)=>b[1].length-a[1].length).slice(0,10).map(([c])=>c);
+  const fpFree = topCats.map(c=>(catCounts[c]||[]).filter(a=>a.Type==='Free').length);
+  const fpPaid = topCats.map(c=>(catCounts[c]||[]).filter(a=>a.Type==='Paid').length);
+  renderGroupedBarChart('chart-fp-by-cat',
+    topCats.map(c=>fmtCatLabel(c)),
+    [{label:'Free',data:fpFree,color:'#34A853'},{label:'Paid',data:fpPaid,color:'#EA4335'}]);
+}
+
+function switchPopTab(tab) {
+  ['top-apps','installs','scatter','free-paid'].forEach(t => {
+    document.getElementById('pop-tab-'+t).style.display = t===tab ? '' : 'none';
+  });
+  document.querySelectorAll('#sec-popularity .tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['top-apps','installs','scatter','free-paid'][i] === tab);
+  });
+  // Re-render the charts for the newly-visible tab after layout is complete.
+  deferDraw(function() { renderPopularity(); });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  SECTION 4: APP EXPLORER
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderExplorer() {
+  expFiltered = [...APPS];
+  explorerSort('Installs', true);
+}
+
+function explorerFilter() {
+  const q       = document.getElementById('exp-search').value.trim().toLowerCase();
+  const cat     = document.getElementById('exp-category').value;
+  const type    = document.getElementById('exp-type').value;
+  const minRat  = parseFloat(document.getElementById('exp-rating').value) || 0;
+  const minInst = parseInt(document.getElementById('exp-installs').value) || 0;
+
+  expFiltered = APPS.filter(a => {
+    if (q && !a.App.toLowerCase().includes(q)) return false;
+    if (cat && a.Category !== cat) return false;
+    if (type && a.Type !== type) return false;
+    if (minRat && (a.Rating === null || a.Rating < minRat)) return false;
+    if (minInst && a.Installs < minInst) return false;
+    return true;
+  });
+
+  // Re-sort with current settings
+  expFiltered.sort((a,b) => {
+    let av = a[expSortCol], bv = b[expSortCol];
+    if (av === null || av === undefined) av = expSortDir === -1 ? -Infinity : Infinity;
+    if (bv === null || bv === undefined) bv = expSortDir === -1 ? -Infinity : Infinity;
+    if (typeof av === 'string') return expSortDir * av.localeCompare(bv);
+    return expSortDir * (bv - av);
+  });
+
+  expPage = 1;
+  renderExplorerTable();
+}
+
+function explorerSort(col, init=false) {
+  if (!init) {
+    if (expSortCol === col) expSortDir *= -1;
+    else { expSortCol = col; expSortDir = -1; }
+  }
+  // Update header icons
+  document.querySelectorAll('th .sort-icon').forEach(el => { el.textContent = '↕'; el.parentElement.classList.remove('sorted'); });
+  const icon = document.getElementById('sort-'+col);
+  if (icon) { icon.textContent = expSortDir === -1 ? '↓' : '↑'; icon.parentElement.classList.add('sorted'); }
+
+  explorerFilter();
+}
+
+function renderExplorerTable() {
+  const tbody = document.getElementById('exp-tbody');
+  const start = (expPage-1)*EXP_PER_PAGE;
+  const page  = expFiltered.slice(start, start+EXP_PER_PAGE);
+
+  document.getElementById('exp-results-count').textContent =
+    `Showing ${start+1}–${Math.min(start+EXP_PER_PAGE, expFiltered.length)} of ${fmtNum(expFiltered.length)} apps`;
+
+  if (!page.length) {
+    tbody.innerHTML = `<tr><td colspan="7">
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <p>No apps match your current filters. Try adjusting the search or filters.</p>
+      </div></td></tr>`;
+    document.getElementById('exp-pagination').innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = page.map((a, i) => {
+    const ratingCell = a.Rating !== null
+      ? `<span class="badge badge-rating">&#9733; ${a.Rating.toFixed(1)}</span>`
+      : `<span style="color:var(--muted)">N/A</span>`;
+    const priceCell = a.Price > 0
+      ? `$${a.Price.toFixed(2)}`
+      : `<span style="color:var(--muted)">Free</span>`;
+    const typeClass = a.Type ? a.Type.toLowerCase() : 'free';
+    return `<tr>
+      <td><strong>${start+i+1}.</strong>&nbsp;${escHtml(a.App)}</td>
+      <td>${fmtCatLabel(a.Category)}</td>
+      <td>${ratingCell}</td>
+      <td>${fmtInstalls(a.Installs)}</td>
+      <td>${fmtNum(a.Reviews)}</td>
+      <td><span class="badge badge-${typeClass}">${a.Type||'—'}</span></td>
+      <td>${priceCell}</td>
+    </tr>`;
+  }).join('');
+
+  renderPagination();
+}
+
+function renderPagination() {
+  const total = Math.ceil(expFiltered.length / EXP_PER_PAGE);
+  const pg = document.getElementById('exp-pagination');
+  if (total <= 1) { pg.innerHTML = ''; return; }
+
+  let html = `<button class="page-btn" onclick="goPage(${expPage-1})" ${expPage===1?'disabled':''}>‹</button>`;
+
+  // Smart page window
+  const pageWin = 2;
+  let pages = new Set([1, total]);
+  for (let i = Math.max(1, expPage-pageWin); i <= Math.min(total, expPage+pageWin); i++) pages.add(i);
+  const sorted = [...pages].sort((a,b)=>a-b);
+  let prev = 0;
+  sorted.forEach(p => {
+    if (p - prev > 1) html += `<span class="page-info">…</span>`;
+    html += `<button class="page-btn ${p===expPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
+    prev = p;
+  });
+
+  html += `<button class="page-btn" onclick="goPage(${expPage+1})" ${expPage===total?'disabled':''}>›</button>`;
+  html += `<span class="page-info">${expPage} / ${total} pages</span>`;
+  pg.innerHTML = html;
+}
+
+function goPage(p) {
+  const total = Math.ceil(expFiltered.length / EXP_PER_PAGE);
+  if (p < 1 || p > total) return;
+  expPage = p;
+  renderExplorerTable();
+  document.getElementById('sec-explorer').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function resetExplorer() {
+  document.getElementById('exp-search').value = '';
+  document.getElementById('exp-category').value = '';
+  document.getElementById('exp-type').value = '';
+  document.getElementById('exp-rating').value = '';
+  document.getElementById('exp-installs').value = '';
+  expSortCol = 'Installs'; expSortDir = -1;
+  document.querySelectorAll('th .sort-icon').forEach(el => { el.textContent = '↕'; el.parentElement.classList.remove('sorted'); });
+  const icon = document.getElementById('sort-Installs');
+  if (icon) { icon.textContent = '↓'; icon.parentElement.classList.add('sorted'); }
+  explorerFilter();
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  CHART UTILITIES
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const TIP = document.getElementById('tooltip');
+function showTip(e, html) {
+  TIP.innerHTML = html; TIP.style.display = 'block';
+  moveTip(e);
+}
+function moveTip(e) {
+  let x = e.clientX + 14, y = e.clientY - 24;
+  const w = TIP.offsetWidth, h = TIP.offsetHeight;
+  if (x + w > window.innerWidth - 10) x = e.clientX - w - 14;
+  if (y + h > window.innerHeight - 10) y = e.clientY - h - 8;
+  TIP.style.left = x+'px'; TIP.style.top = y+'px';
+}
+function hideTip() { TIP.style.display = 'none'; }
+
+/* ── Horizontal Bar Chart — Logarithmic X Scale (canvas) ── */
+// Used specifically for the "Top 15 Apps by Installations" chart.
+// data[]       — numeric install values (used for bar length via log scale)
+// bracketLabels[] — human-readable bracket strings shown in the value label and tooltip
+function renderBarChartHLog(id, labels, data, bracketLabels, color) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth || 500;
+  const H = canvas.parentElement.clientHeight || 460;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.scale(dpr, dpr);
+
+  const PAD = { top: 14, right: 72, bottom: 32, left: 200 };
+  const bW = W - PAD.left - PAD.right;
+  const bH = H - PAD.top  - PAD.bottom;
+  const n  = labels.length;
+
+  // Filter out zero-install entries before computing log domain
+  const validData = data.map(v => v > 0 ? v : 1);
+  const logMin = Math.log10(Math.max(1, Math.min(...validData))) * 0.95;
+  const logMax = Math.log10(Math.max(...validData)) * 1.02;
+  const logRange = logMax - logMin;
+
+  const barH  = Math.max(4, (bH / n) * 0.65);
+  const gap   = bH / n;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Log-scale grid lines and x-axis tick values
+  const tickValues = [1, 10, 100, 1000, 10000, 100000, 1e6, 1e7, 1e8, 5e8, 1e9];
+  ctx.strokeStyle = '#DADCE0'; ctx.lineWidth = 0.5;
+  ctx.fillStyle   = '#5F6368'; ctx.font = '9px var(--font)'; ctx.textAlign = 'center';
+
+  tickValues.forEach(tv => {
+    const lv = Math.log10(tv);
+    if (lv < logMin || lv > logMax + 0.01) return;
+    const x = PAD.left + ((lv - logMin) / logRange) * bW;
+    ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top + bH); ctx.stroke();
+    // Only label select ticks to avoid crowding
+    const label = fmtNum(tv);
+    ctx.fillText(label, x, PAD.top + bH + 14);
+  });
+
+  // Axis label
+  ctx.fillStyle = '#5F6368'; ctx.font = '10px var(--font)'; ctx.textAlign = 'center';
+  ctx.fillText('Install count (log scale — each major gridline = 10× increase)', PAD.left + bW / 2, PAD.top + bH + 28);
+
+  // Bars
+  data.forEach((val, i) => {
+    const lv = Math.log10(Math.max(1, val));
+    const bw = ((lv - logMin) / logRange) * bW;
+    const x  = PAD.left;
+    const y  = PAD.top + gap * i + (gap - barH) / 2;
+
+    // Gradient fill
+    const grad = ctx.createLinearGradient(x, 0, x + bw, 0);
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, color + 'bb');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(x, y, bw, barH, 3) : ctx.rect(x, y, bw, barH);
+    ctx.fill();
+
+    // App name label (left)
+    ctx.fillStyle = '#5F6368';
+    ctx.font = `${Math.min(12, gap * 0.6)}px var(--font)`;
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText(labels[i], PAD.left - 8, y + barH / 2);
+
+    // Bracket label (right of bar)
+    const bracket = bracketLabels[i] || '';
+    ctx.fillStyle = '#202124';
+    ctx.font = `bold ${Math.min(11, gap * 0.55)}px var(--font)`;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(bracket, x + bw + 6, y + barH / 2);
+  });
+
+  // Store data for tooltips
+  canvas._chartDataLog = { labels, data, bracketLabels, PAD, bH, bW, n, gap, barH, logMin, logRange };
+
+  canvas.onmousemove = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const cd = canvas._chartDataLog;
+    for (let i = 0; i < cd.n; i++) {
+      const lv = Math.log10(Math.max(1, cd.data[i]));
+      const bw = ((lv - cd.logMin) / cd.logRange) * cd.bW;
+      const y1 = cd.PAD.top + cd.gap * i + (cd.gap - cd.barH) / 2;
+      if (mx >= cd.PAD.left && mx <= cd.PAD.left + bw && my >= y1 && my <= y1 + cd.barH) {
+        showTip(e,
+          `<strong>#${i + 1} ${cd.labels[i]}</strong>\n` +
+          `Install bracket: ${cd.bracketLabels[i]}\n` +
+          `(${(cd.data[i]).toLocaleString()} reported minimum)`
+        );
+        return;
+      }
+    }
+    hideTip();
+  };
+  canvas.onmouseleave = hideTip;
+}
+
+/* ── Horizontal Bar Chart (canvas) ── */
+function renderBarChartH(id, labels, data, color, valueLabel, range) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth || 500;
+  const H = canvas.parentElement.clientHeight || 400;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W+'px';
+  canvas.style.height = H+'px';
+  ctx.scale(dpr, dpr);
+
+  const PAD = {top:12, right:60, bottom:24, left:180};
+  const bW  = W - PAD.left - PAD.right;
+  const bH  = H - PAD.top  - PAD.bottom;
+  const n   = labels.length;
+  const maxVal = range ? range[1] : Math.max(...data) * 1.08;
+  const minVal = range ? range[0] : 0;
+  const barH   = Math.max(4, (bH / n) * 0.7);
+  const gap    = bH / n;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid lines
+  ctx.strokeStyle = '#DADCE0'; ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 4; i++) {
+    const x = PAD.left + (bW * i / 4);
+    ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top+bH); ctx.stroke();
+  }
+
+  // Bars
+  data.forEach((val, i) => {
+    const x  = PAD.left;
+    const y  = PAD.top + gap * i + (gap - barH) / 2;
+    const bw = ((val - minVal) / (maxVal - minVal)) * bW;
+
+    // Bar fill with gradient
+    const grad = ctx.createLinearGradient(x, 0, x+bw, 0);
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, color+'bb');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(x, y, bw, barH, 3) : ctx.rect(x, y, bw, barH);
+    ctx.fill();
+
+    // Label (left)
+    ctx.fillStyle = '#5F6368'; ctx.font = `${Math.min(12, gap*0.55)}px var(--font)`;
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText(labels[i], PAD.left - 8, y + barH/2);
+
+    // Value (right)
+    ctx.fillStyle = '#202124'; ctx.font = `bold ${Math.min(11, gap*0.5)}px var(--font)`;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(typeof val === 'number' && val > 1000 ? fmtNum(val) : (Number.isInteger(val)?val:val.toFixed(2)), x+bw+6, y+barH/2);
+  });
+
+  // X-axis labels
+  ctx.fillStyle = '#5F6368'; ctx.font = '10px var(--font)'; ctx.textAlign = 'center';
+  for (let i = 0; i <= 4; i++) {
+    const x = PAD.left + (bW * i / 4);
+    const v = minVal + (maxVal - minVal) * i / 4;
+    ctx.fillText(fmtNum(v), x, PAD.top + bH + 14);
+  }
+
+  // Store data for tooltips
+  canvas._chartData = { labels, data, type:'barH', PAD, bH, bW, n, gap, barH, minVal, maxVal };
+
+  // Tooltip hover
+  canvas.onmousemove = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const cd = canvas._chartData;
+    for (let i = 0; i < cd.n; i++) {
+      const y1 = cd.PAD.top + cd.gap*i + (cd.gap-cd.barH)/2;
+      const bw = ((cd.data[i]-cd.minVal)/(cd.maxVal-cd.minVal))*cd.bW;
+      if (mx >= cd.PAD.left && mx <= cd.PAD.left+bw && my >= y1 && my <= y1+cd.barH) {
+        showTip(e, `<strong>${cd.labels[i]}</strong>\n${valueLabel}: ${cd.data[i].toLocaleString()}`);
+        return;
+      }
+    }
+    hideTip();
+  };
+  canvas.onmouseleave = hideTip;
+}
+
+/* ── Vertical Bar Chart (canvas) ── */
+function renderBarChartV(id, labels, data, color, valueLabel, range, multiColor) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth || 500;
+  const H = canvas.parentElement.clientHeight || 280;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W+'px';
+  canvas.style.height = H+'px';
+  ctx.scale(dpr, dpr);
+
+  const PAD = {top:16, right:20, bottom:56, left:55};
+  const bW = W - PAD.left - PAD.right;
+  const bH = H - PAD.top  - PAD.bottom;
+  const n  = labels.length;
+  const maxVal = range ? range[1] : Math.max(...data.filter(d=>d!==null)) * 1.1 || 1;
+  const minVal = range ? range[0] : 0;
+  const slotW  = bW / n;
+  const barW   = Math.max(4, slotW * 0.65);
+  const COLORS  = ['#4285F4','#34A853','#FBBC04','#EA4335','#8E24AA','#00ACC1','#F57C00','#0097A7','#5C6BC0'];
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = '#DADCE0'; ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 4; i++) {
+    const y = PAD.top + bH - (bH * i / 4);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left+bW, y); ctx.stroke();
+    const v = minVal + (maxVal - minVal) * i / 4;
+    ctx.fillStyle = '#5F6368'; ctx.font = '10px var(--font)'; ctx.textAlign = 'right';
+    ctx.fillText(fmtNum(v), PAD.left-5, y+3);
+  }
+
+  // Bars
+  data.forEach((val, i) => {
+    if (val === null) return;
+    const x  = PAD.left + slotW*i + (slotW-barW)/2;
+    const bh = ((val-minVal)/(maxVal-minVal)) * bH;
+    const y  = PAD.top + bH - bh;
+    ctx.fillStyle = multiColor ? (Array.isArray(color) ? color[i] : COLORS[i % COLORS.length]) : color;
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(x, y, barW, bh, [3,3,0,0]) : ctx.rect(x, y, barW, bh);
+    ctx.fill();
+  });
+
+  // X labels
+  ctx.fillStyle = '#5F6368'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  labels.forEach((lbl, i) => {
+    const x = PAD.left + slotW*i + slotW/2;
+    const maxW = slotW - 4;
+    ctx.font = '10px var(--font)';
+    // rotate if many labels
+    if (n > 8) {
+      ctx.save(); ctx.translate(x, PAD.top+bH+6); ctx.rotate(-Math.PI/4);
+      ctx.textAlign = 'right'; ctx.fillText(lbl, 0, 0); ctx.restore();
+    } else {
+      // wrap text
+      const words = lbl.split(' ');
+      let line = '', lineY = PAD.top+bH+6, lh = 12;
+      words.forEach(w => {
+        const t = line ? line+' '+w : w;
+        if (ctx.measureText(t).width > maxW && line) {
+          ctx.fillText(line, x, lineY); line = w; lineY += lh;
+        } else line = t;
+      });
+      ctx.fillText(line, x, lineY);
+    }
+  });
+
+  // Tooltip
+  canvas._chartData = { labels, data, type:'barV', PAD, bH, bW, n, slotW, barW, minVal, maxVal };
+  canvas.onmousemove = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const cd = canvas._chartData;
+    for (let i = 0; i < cd.n; i++) {
+      if (cd.data[i] === null) continue;
+      const x  = cd.PAD.left + cd.slotW*i + (cd.slotW-cd.barW)/2;
+      const bh = ((cd.data[i]-cd.minVal)/(cd.maxVal-cd.minVal)) * cd.bH;
+      const y  = cd.PAD.top + cd.bH - bh;
+      if (mx >= x && mx <= x+cd.barW && my >= y && my <= y+bh) {
+        showTip(e, `<strong>${cd.labels[i]}</strong>\n${valueLabel}: ${typeof cd.data[i]==='number'&&cd.data[i]>1000?fmtNum(cd.data[i]):cd.data[i].toLocaleString()}`);
+        return;
+      }
+    }
+    hideTip();
+  };
+  canvas.onmouseleave = hideTip;
+}
+
+/* ── Line Chart (canvas) ── */
+function renderLineChart(id, labels, data, color, valueLabel) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth || 500;
+  const H = canvas.parentElement.clientHeight || 280;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W+'px';
+  canvas.style.height = H+'px';
+  ctx.scale(dpr, dpr);
+
+  const PAD = {top:20, right:20, bottom:60, left:55};
+  const bW = W - PAD.left - PAD.right;
+  const bH = H - PAD.top  - PAD.bottom;
+  const valid = data.filter(d=>d!==null);
+  if (!valid.length) return;
+  const maxVal = Math.max(...valid) * 1.1;
+  const minVal = Math.min(...valid) * 0.9;
+  const n = labels.length;
+  const slotW = bW / (n-1||1);
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = '#DADCE0'; ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 4; i++) {
+    const y = PAD.top + bH - (bH * i / 4);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left+bW, y); ctx.stroke();
+    const v = minVal + (maxVal-minVal)*i/4;
+    ctx.fillStyle = '#5F6368'; ctx.font = '10px var(--font)'; ctx.textAlign = 'right';
+    ctx.fillText(v.toFixed(2), PAD.left-5, y+3);
+  }
+
+  // Area fill
+  ctx.beginPath();
+  let started = false;
+  data.forEach((val, i) => {
+    if (val === null) return;
+    const x = PAD.left + slotW*i;
+    const y = PAD.top + bH - ((val-minVal)/(maxVal-minVal))*bH;
+    if (!started) { ctx.moveTo(x, PAD.top+bH); ctx.lineTo(x,y); started=true; }
+    else ctx.lineTo(x,y);
+  });
+  ctx.lineTo(PAD.left + slotW*(n-1), PAD.top+bH);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, PAD.top, 0, PAD.top+bH);
+  grad.addColorStop(0, color+'44'); grad.addColorStop(1, color+'08');
+  ctx.fillStyle = grad; ctx.fill();
+
+  // Line
+  ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.beginPath(); started = false;
+  data.forEach((val, i) => {
+    if (val === null) { started = false; return; }
+    const x = PAD.left + slotW*i;
+    const y = PAD.top + bH - ((val-minVal)/(maxVal-minVal))*bH;
+    started ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+    started = true;
+  });
+  ctx.stroke();
+
+  // Dots
+  data.forEach((val, i) => {
+    if (val === null) return;
+    const x = PAD.left + slotW*i;
+    const y = PAD.top + bH - ((val-minVal)/(maxVal-minVal))*bH;
+    ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI*2);
+    ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+  });
+
+  // X labels
+  ctx.fillStyle = '#5F6368'; ctx.font = '10px var(--font)';
+  labels.forEach((lbl, i) => {
+    const x = PAD.left + slotW*i;
+    ctx.save(); ctx.translate(x, PAD.top+bH+8); ctx.rotate(-Math.PI/4);
+    ctx.textAlign = 'right'; ctx.fillText(lbl, 0, 0); ctx.restore();
+  });
+
+  canvas._chartData = { labels, data, PAD, bH, bW, n, slotW, minVal, maxVal };
+  canvas.onmousemove = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const cd = canvas._chartData;
+    let best = -1, bestDist = Infinity;
+    for (let i = 0; i < cd.n; i++) {
+      if (cd.data[i]===null) continue;
+      const x = cd.PAD.left + cd.slotW*i;
+      const d = Math.abs(mx-x);
+      if (d < bestDist) { bestDist=d; best=i; }
+    }
+    if (best>=0 && bestDist<30) {
+      showTip(e, `<strong>${cd.labels[best]}</strong>\n${valueLabel}: ${cd.data[best].toFixed(2)}`);
+    } else hideTip();
+  };
+  canvas.onmouseleave = hideTip;
+}
+
+/* ── Donut Chart (canvas) ── */
+function renderDonutChart(id, labels, data, colors) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth || 400;
+  const H = canvas.parentElement.clientHeight || 320;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W+'px';
+  canvas.style.height = H+'px';
+  ctx.scale(dpr, dpr);
+
+  ctx.clearRect(0, 0, W, H);
+
+  const total = data.reduce((a,b)=>a+b,0);
+  if (!total) return;
+
+  const legendH = Math.ceil(labels.length/2)*20 + 12;
+  const chartH  = H - legendH;
+  const cx = W/2, cy = chartH/2;
+  const outerR = Math.min(cx, cy) * 0.82;
+  const innerR = outerR * 0.52;
+
+  let angle = -Math.PI/2;
+  const slices = data.map((val, i) => {
+    const sweep = (val/total) * Math.PI * 2;
+    const s = { start: angle, sweep, color: colors[i % colors.length], label: labels[i], val };
+    angle += sweep;
+    return s;
+  });
+
+  // Draw slices
+  slices.forEach(s => {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, outerR, s.start, s.start+s.sweep);
+    ctx.closePath();
+    ctx.fillStyle = s.color; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  });
+
+  // Donut hole
+  ctx.beginPath(); ctx.arc(cx, cy, innerR, 0, Math.PI*2);
+  ctx.fillStyle = '#fff'; ctx.fill();
+
+  // Center label
+  ctx.fillStyle = '#202124'; ctx.font = `bold 14px var(--font)`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(fmtNum(total), cx, cy-8);
+  ctx.fillStyle = '#5F6368'; ctx.font = `11px var(--font)`;
+  ctx.fillText('Total', cx, cy+10);
+
+  // Legend
+  const cols = 2, rowH = 20, colW = W/cols;
+  labels.forEach((lbl, i) => {
+    const col = i % cols, row = Math.floor(i / cols);
+    const x = col * colW + 12, y = chartH + 10 + row * rowH;
+    ctx.fillStyle = colors[i % colors.length];
+    ctx.beginPath(); ctx.arc(x+5, y+5, 5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#5F6368'; ctx.font = '11px var(--font)'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    const pct = ((data[i]/total)*100).toFixed(1);
+    const text = `${lbl} (${pct}%)`;
+    ctx.fillText(text.length > 24 ? text.slice(0,22)+'…' : text, x+14, y);
+  });
+
+  // Tooltip
+  canvas._chartData = { slices, cx, cy, outerR, innerR };
+  canvas.onmousemove = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left - canvas._chartData.cx;
+    const my = e.clientY - rect.top  - canvas._chartData.cy;
+    const dist = Math.sqrt(mx*mx+my*my);
+    const cd = canvas._chartData;
+    if (dist < cd.innerR || dist > cd.outerR) { hideTip(); return; }
+    let ang = Math.atan2(my, mx);
+    if (ang < -Math.PI/2) ang += Math.PI*2;
+    const offset = ang + Math.PI/2;
+    const normAng = ((offset % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+    for (const s of cd.slices) {
+      const sa = ((s.start + Math.PI/2 + Math.PI*2) % (Math.PI*2));
+      const ea = ((sa + s.sweep) % (Math.PI*2));
+      let inside = s.sweep >= Math.PI*2 ? true : (sa < ea ? (normAng>=sa && normAng<ea) : (normAng>=sa || normAng<ea));
+      if (inside) {
+        const pct = ((s.val/total)*100).toFixed(1);
+        showTip(e, `<strong>${s.label}</strong>\nCount: ${s.val.toLocaleString()} (${pct}%)`);
+        return;
+      }
+    }
+    hideTip();
+  };
+  canvas.onmouseleave = hideTip;
+}
+
+/* ── Grouped Bar Chart (canvas) ── */
+function renderGroupedBarChart(id, labels, series) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth || 500;
+  const H = canvas.parentElement.clientHeight || 280;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W+'px';
+  canvas.style.height = H+'px';
+  ctx.scale(dpr, dpr);
+
+  const PAD = {top:20, right:20, bottom:60, left:50};
+  const bW = W - PAD.left - PAD.right;
+  const bH = H - PAD.top  - PAD.bottom;
+  const n  = labels.length;
+  const ns = series.length;
+  const allVals = series.flatMap(s=>s.data);
+  const maxVal  = Math.max(...allVals) * 1.1 || 1;
+  const slotW   = bW / n;
+  const barW    = (slotW * 0.75) / ns;
+  const barGap  = slotW * 0.025;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = '#DADCE0'; ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 4; i++) {
+    const y = PAD.top + bH - (bH*i/4);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left+bW, y); ctx.stroke();
+    ctx.fillStyle = '#5F6368'; ctx.font = '10px var(--font)'; ctx.textAlign = 'right';
+    ctx.fillText(fmtNum(maxVal*i/4), PAD.left-4, y+3);
+  }
+
+  // Bars
+  series.forEach((s, si) => {
+    s.data.forEach((val, i) => {
+      const x  = PAD.left + slotW*i + (slotW - ns*barW - (ns-1)*barGap)/2 + si*(barW+barGap);
+      const bh = (val/maxVal) * bH;
+      const y  = PAD.top + bH - bh;
+      ctx.fillStyle = s.color;
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(x, y, barW, bh, [2,2,0,0]) : ctx.rect(x, y, barW, bh);
+      ctx.fill();
+    });
+  });
+
+  // X labels
+  ctx.fillStyle = '#5F6368'; ctx.font = '10px var(--font)';
+  labels.forEach((lbl, i) => {
+    const x = PAD.left + slotW*i + slotW/2;
+    ctx.save(); ctx.translate(x, PAD.top+bH+8); ctx.rotate(-Math.PI/4);
+    ctx.textAlign = 'right'; ctx.fillText(lbl, 0, 0); ctx.restore();
+  });
+
+  // Legend
+  const lx = PAD.left, ly = PAD.top - 16;
+  series.forEach((s, i) => {
+    ctx.fillStyle = s.color; ctx.fillRect(lx+i*90, ly, 10, 10);
+    ctx.fillStyle = '#5F6368'; ctx.font = '10px var(--font)'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(s.label, lx+i*90+14, ly);
+  });
+
+  // Tooltip
+  canvas._chartData = { labels, series, PAD, bH, bW, n, ns, slotW, barW, barGap, maxVal };
+  canvas.onmousemove = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const cd = canvas._chartData;
+    for (let si = 0; si < cd.ns; si++) {
+      for (let i = 0; i < cd.n; i++) {
+        const val = cd.series[si].data[i];
+        const x  = cd.PAD.left + cd.slotW*i + (cd.slotW - cd.ns*cd.barW - (cd.ns-1)*cd.barGap)/2 + si*(cd.barW+cd.barGap);
+        const bh = (val/cd.maxVal)*cd.bH;
+        const y  = cd.PAD.top + cd.bH - bh;
+        if (mx>=x && mx<=x+cd.barW && my>=y && my<=y+bh) {
+          showTip(e, `<strong>${cd.labels[i]}</strong>\n${cd.series[si].label}: ${fmtNum(val)}`);
+          return;
+        }
+      }
+    }
+    hideTip();
+  };
+  canvas.onmouseleave = hideTip;
+}
+
+/* ── Scatter Chart (canvas) ── */
+// useLogX: true for review counts, false for price
+function renderScatterChart(id, points, xLabel, color, useLogX) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth || 500;
+  const H = canvas.parentElement.clientHeight || 360;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W+'px';
+  canvas.style.height = H+'px';
+  ctx.scale(dpr, dpr);
+
+  const PAD = {top:20, right:24, bottom:50, left:55};
+  const bW = W - PAD.left - PAD.right;
+  const bH = H - PAD.top  - PAD.bottom;
+  const c  = color || '#4285F4';
+  // Default to log scale unless explicitly disabled
+  const isLog = (useLogX !== false);
+
+  const validPts = points.filter(p => p.x > 0 && p.y !== null);
+  if (!validPts.length) return;
+
+  const xs = validPts.map(p=>p.x);
+  let xMin, xMax;
+  if (isLog) {
+    xMin = Math.log10(Math.max(1, Math.min(...xs)));
+    xMax = Math.log10(Math.max(...xs)) * 1.02;
+  } else {
+    xMin = 0; xMax = Math.max(...xs) * 1.08;
+  }
+  const yMin = 1, yMax = 5.1;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Y grid + ticks
+  ctx.strokeStyle = '#DADCE0'; ctx.lineWidth = 0.5;
+  const yTicks = [1,1.5,2,2.5,3,3.5,4,4.5,5];
+  yTicks.forEach(v => {
+    const y = PAD.top + bH - ((v-yMin)/(yMax-yMin))*bH;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left+bW, y); ctx.stroke();
+    ctx.fillStyle = '#5F6368'; ctx.font = '10px var(--font)'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText(v.toFixed(1), PAD.left-6, y);
+  });
+
+  // X-axis ticks
+  if (isLog) {
+    const xTicks = [1,10,100,1000,10000,100000,1e6,1e7,1e8];
+    xTicks.forEach(v => {
+      const lv = Math.log10(v);
+      if (lv < xMin || lv > xMax) return;
+      const x = PAD.left + ((lv-xMin)/(xMax-xMin))*bW;
+      ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top+bH); ctx.stroke();
+      ctx.fillStyle = '#5F6368'; ctx.font = '10px var(--font)'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(fmtNum(v), x, PAD.top+bH+5);
+    });
+  } else {
+    for (let i = 0; i <= 5; i++) {
+      const v = xMin + (xMax-xMin)*i/5;
+      const x = PAD.left + (v/(xMax-xMin))*bW;
+      ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top+bH); ctx.stroke();
+      ctx.fillStyle = '#5F6368'; ctx.font = '10px var(--font)'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText('$'+v.toFixed(v<10?2:0), x, PAD.top+bH+5);
+    }
+  }
+
+  // Axis labels
+  ctx.fillStyle = '#5F6368'; ctx.font = '11px var(--font)'; ctx.textAlign = 'center';
+  ctx.fillText(xLabel || ('Review Count' + (isLog?' (log scale)':'')), PAD.left+bW/2, PAD.top+bH+36);
+  ctx.save(); ctx.translate(12, PAD.top+bH/2); ctx.rotate(-Math.PI/2);
+  ctx.textAlign = 'center'; ctx.fillText('Rating', 0, 0); ctx.restore();
+
+  // Points
+  const ptCoords = [];
+  validPts.forEach(p => {
+    let px;
+    if (isLog) {
+      const lx = Math.log10(p.x);
+      if (lx < xMin || lx > xMax) return;
+      px = PAD.left + ((lx-xMin)/(xMax-xMin))*bW;
+    } else {
+      if (p.x < xMin || p.x > xMax) return;
+      px = PAD.left + ((p.x-xMin)/(xMax-xMin))*bW;
+    }
+    const py = PAD.top + bH - ((p.y-yMin)/(yMax-yMin))*bH;
+    ctx.beginPath(); ctx.arc(px, py, 3.5, 0, Math.PI*2);
+    ctx.fillStyle = c+'77'; ctx.fill();
+    ptCoords.push({x:px, y:py, label:p.label, rx:p.x, ry:p.y});
+  });
+
+  canvas._scatterData = ptCoords;
+  canvas.onmousemove = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    let best = null, bestDist = 12;
+    for (const pt of canvas._scatterData) {
+      const d = Math.sqrt((mx-pt.x)**2+(my-pt.y)**2);
+      if (d < bestDist) { bestDist=d; best=pt; }
+    }
+    if (best) {
+      const xFmt = isLog ? fmtNum(best.rx) : '$'+best.rx.toFixed(2);
+      showTip(e, `<strong>${best.label}</strong>\n${xLabel||'Reviews'}: ${xFmt}\nRating: ${best.ry.toFixed(1)}`);
+    } else hideTip();
+  };
+  canvas.onmouseleave = hideTip;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  HELPERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// Build top-15 install list that ensures bars span multiple distinct brackets.
+// Strategy:
+//   1. Sort all apps by Installs descending.
+//   2. Walk through the sorted list, keeping up to MAX_PER_BRACKET apps per bracket.
+//      This prevents a single bracket (e.g. 1B+) from consuming all 15 slots.
+//   3. Stop once we have 15 apps.
+// Result: visually meaningful chart with different bar lengths across tiers.
+function buildTop15ByInstalls(apps, total = 15, maxPerBracket = 3) {
+  const sorted  = [...apps].sort((a, b) => b.Installs - a.Installs);
+  const counts  = {};   // bracket → count of selected apps
+  const result  = [];
+  for (const a of sorted) {
+    if (result.length >= total) break;
+    const bucket = a.Installs; // exact numeric bracket value (e.g. 1e9, 5e8)
+    counts[bucket] = (counts[bucket] || 0);
+    if (counts[bucket] < maxPerBracket) {
+      result.push(a);
+      counts[bucket]++;
+    }
+  }
+  return result;
+}
+
+function groupBy(arr, key) {
+  return arr.reduce((acc, item) => {
+    const k = item[key];
+    if (!acc[k]) acc[k] = [];
+    acc[k].push(item);
+    return acc;
+  }, {});
+}
+
+function sampleArr(arr, n) {
+  if (arr.length <= n) return arr;
+  const step = arr.length / n;
+  return Array.from({length:n}, (_, i) => arr[Math.floor(i*step)]);
+}
+
+// ─── Redraw on resize ───────────────────────────────────
+// Only redraws the currently-visible section to avoid wasted work
+// and to avoid rendering hidden canvases at 0px width.
+let _resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(() => {
+    if (!_dashboardInitialized) return;
+    const active = document.querySelector('.section.active');
+    if (!active) return;
+    const id = active.id.replace('sec-', '');
+    deferDraw(function() {
+      if (id === 'overview')    renderOverview();
+      else if (id === 'market') renderMarketAnalysis();
+      else if (id === 'popularity') renderPopularity();
+      // explorer: no canvas charts
+    });
+  }, 200);
+});
+</script>
+</body>
+</html>
